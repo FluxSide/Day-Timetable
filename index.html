@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>「一日课表」可点击原型 v1.0</title>
+<style>
+  :root{
+    --ink:#1a2233; --sub:#6b7280; --line:#e4e7ec; --bg:#e9edf3;
+    --brand:#2f6bff; --brand-soft:#e8efff; --green:#1faa59; --green-soft:#e3f6ec;
+    --red:#d93025; --red-soft:#fdecea; --amber:#d97706; --amber-soft:#fdf1e0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  body{font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif; background:var(--bg); color:var(--ink);
+       min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:28px 16px;}
+  /* ===== 手机框 ===== */
+  .phone{width:390px; height:780px; background:#f7f8fa; border:10px solid #111827; border-radius:44px; overflow:hidden;
+         position:relative; box-shadow:0 24px 60px rgba(15,23,42,.25); display:flex; flex-direction:column; flex-shrink:0;}
+  .statusbar{height:30px; background:#1e3a8a; flex-shrink:0;}
+  .navbar{background:#1e3a8a; color:#fff; text-align:center; padding:10px 14px 12px; font-size:16px; font-weight:700; position:relative; flex-shrink:0;}
+  .navbar .sub{font-size:11px; font-weight:400; opacity:.8; margin-top:2px;}
+  .navbar .nav-btn{position:absolute; right:12px; top:10px; font-size:11.5px; font-weight:600; background:rgba(255,255,255,.18);
+                   border:none; color:#fff; border-radius:8px; padding:5px 10px; cursor:pointer; font-family:inherit;}
+  .screen{flex:1; overflow-y:auto; padding:14px; display:none;}
+  .screen.on{display:block;}
+  /* ===== 底部 Tab ===== */
+  .tabbar{display:flex; background:#fff; border-top:1px solid var(--line); flex-shrink:0;}
+  .tabbar button{flex:1; border:none; background:none; padding:10px 0 12px; font-size:12px; color:var(--sub); cursor:pointer; font-family:inherit;}
+  .tabbar button .ic{display:block; font-size:18px; margin-bottom:2px;}
+  .tabbar button.on{color:var(--brand); font-weight:700;}
+  /* ===== 课表网格 ===== */
+  table.sched{width:100%; border-collapse:collapse; font-size:11.5px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.05);}
+  table.sched th, table.sched td{border:1px solid #eef0f4; padding:0; text-align:center;}
+  table.sched th{background:#f0f3f8; font-size:11px; padding:6px 2px; font-weight:600;}
+  td.slot-label{background:#f8fafc; font-size:10.5px; color:var(--sub); padding:6px 3px; width:64px; line-height:1.5;}
+  td.cell{height:52px; cursor:pointer; position:relative; transition:background .15s;}
+  td.cell:active{background:#eef3ff;}
+  td.cell.break{background:repeating-linear-gradient(45deg,#fafbfc,#fafbfc 5px,#f1f3f6 5px,#f1f3f6 10px); cursor:default;}
+  td.cell.move-target{background:#fff7e8; animation:pulse 1s infinite;}
+  @keyframes pulse{50%{background:#ffefc4;}}
+  .blk{position:absolute; inset:3px; border-radius:8px; font-size:11px; padding:5px 6px; text-align:left; overflow:hidden; line-height:1.4;}
+  .blk.study{background:var(--brand-soft); border-left:3px solid var(--brand); color:#1e3a8a;}
+  .blk.work{background:var(--green-soft); border-left:3px solid var(--green); color:#14532d;}
+  .blk.done{opacity:.5;}
+  .blk.done .nm{text-decoration:line-through;}
+  .blk .nm{font-weight:700; display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;}
+  .blk .st{font-size:9.5px; opacity:.75;}
+  .blk .now{position:absolute; top:3px; right:4px; background:var(--amber); color:#fff; font-size:9px; border-radius:4px; padding:0 4px;}
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--sub); margin:10px 2px; flex-wrap:wrap;}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:4px; vertical-align:-1px;}
+  .empty-cta{text-align:center; padding:34px 20px; background:#fff; border-radius:12px; margin-bottom:12px; box-shadow:0 2px 8px rgba(15,23,42,.05);}
+  .empty-cta .big{font-size:40px; margin-bottom:8px;}
+  .empty-cta p{font-size:13px; color:var(--sub); margin-bottom:14px;}
+  /* ===== 按钮 ===== */
+  .btn{display:inline-block; border:none; border-radius:10px; padding:11px 0; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; text-align:center;}
+  .btn.primary{background:var(--brand); color:#fff; width:100%;}
+  .btn.primary:disabled{background:#c3cede; cursor:not-allowed;}
+  .btn.ghost{background:#eef1f6; color:var(--ink); width:100%; margin-top:8px;}
+  .btn.small{width:auto; padding:7px 16px; font-size:13px;}
+  /* ===== 任务清单 ===== */
+  .task-card{background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 8px rgba(15,23,42,.05);}
+  .task-card .badge{width:8px; height:36px; border-radius:4px; flex-shrink:0;}
+  .task-card .badge.study{background:var(--brand);}
+  .task-card .badge.work{background:var(--green);}
+  .task-card .info{flex:1; min-width:0;}
+  .task-card .t-name{font-size:14px; font-weight:700;}
+  .task-card .t-meta{font-size:11.5px; color:var(--sub); margin-top:2px;}
+  .task-card .t-del{border:none; background:none; color:#c0c6d2; font-size:16px; cursor:pointer; padding:4px;}
+  .sec-title{font-size:12px; color:var(--sub); font-weight:700; margin:16px 2px 8px; letter-spacing:.5px;}
+  /* ===== 表单 ===== */
+  .f-row{margin-bottom:14px;}
+  .f-row label{display:block; font-size:12.5px; color:var(--sub); margin-bottom:5px; font-weight:600;}
+  .f-row input{width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:14px; font-family:inherit; background:#fff;}
+  .f-row input.err{border-color:var(--red); background:var(--red-soft);}
+  .f-err{font-size:12px; color:var(--red); margin-top:4px; display:none;}
+  .seg{display:flex; gap:8px;}
+  .seg button{flex:1; border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 0; font-size:13.5px; cursor:pointer; font-family:inherit;}
+  .seg button.on{background:var(--brand); color:#fff; border-color:var(--brand); font-weight:700;}
+  .seg button.on.g{background:var(--green); border-color:var(--green);}
+  /* ===== 弹层 ===== */
+  .mask{position:absolute; inset:0; background:rgba(15,23,42,.45); display:none; align-items:flex-end; z-index:50;}
+  .mask.show{display:flex;}
+  .sheet{background:#fff; width:100%; border-radius:18px 18px 0 0; padding:8px 0 20px; animation:up .22s ease;}
+  @keyframes up{from{transform:translateY(40px); opacity:.4;}}
+  .sheet .ttl{text-align:center; font-size:13px; color:var(--sub); padding:12px; border-bottom:1px solid var(--line); font-weight:600;}
+  .sheet>button{display:block; width:100%; border:none; background:#fff; padding:14px 0; font-size:15.5px; cursor:pointer; font-family:inherit;}
+  .sheet>button.danger{color:var(--red);}
+  .sheet>button.cancel{border-top:6px solid #f0f3f8; color:var(--sub);}
+  .dialog{background:#fff; margin:auto 24px; border-radius:16px; padding:20px; animation:up .22s ease;}
+  .dialog h3{font-size:16px; margin-bottom:8px;}
+  .dialog p{font-size:13.5px; color:var(--sub); line-height:1.7; margin-bottom:8px;}
+  .dialog .unplaced{background:var(--amber-soft); border-radius:8px; padding:8px 12px; font-size:13px; color:var(--amber); margin:8px 0;}
+  .dialog .row{display:flex; gap:10px; margin-top:14px;}
+  .dialog .row .btn{flex:1;}
+  /* 收尾卡片 */
+  .wrap-item{border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px;}
+  .wrap-item .wn{font-size:14px; font-weight:700; margin-bottom:8px;}
+  .wrap-item .wn small{font-weight:400; color:var(--sub); font-size:11.5px; margin-left:6px;}
+  .wrap-item .row{display:flex; gap:8px; margin-top:0;}
+  .wrap-item .row button{flex:1; border-radius:8px; padding:8px 0; font-size:13px; border:1px solid var(--line); background:#fff; cursor:pointer; font-family:inherit; font-weight:600;}
+  .wrap-item .row button.primary{background:var(--brand); color:#fff; border-color:var(--brand);}
+  .wrap-item .resolved{font-size:12.5px; color:var(--green); font-weight:700;}
+  /* toast */
+  .toast{position:absolute; left:50%; top:70px; transform:translateX(-50%); background:rgba(15,23,42,.88); color:#fff; font-size:13px;
+         padding:9px 18px; border-radius:99px; display:none; z-index:80; white-space:nowrap; max-width:88%;}
+  .move-banner{display:none; background:var(--amber-soft); color:var(--amber); font-size:12.5px; font-weight:700; text-align:center;
+               padding:8px; border-radius:10px; margin-bottom:10px;}
+  .move-banner.show{display:block;}
+  .progress-chip{font-size:11px; background:var(--brand-soft); color:var(--brand); border-radius:99px; padding:2px 10px; font-weight:700;}
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <div class="statusbar"></div>
+  <div class="navbar">
+    <div id="navTitle">今日课表</div>
+    <div class="sub" id="navSub"></div>
+    <button class="nav-btn" id="navBtn" style="display:none"></button>
+  </div>
+
+  <!-- ===== 课表屏 ===== -->
+  <div class="screen on" id="scrSched">
+    <div class="move-banner" id="moveBanner">换格模式：请点选一个空节次落位</div>
+    <div id="schedContent"></div>
+  </div>
+
+  <!-- ===== 任务清单屏 ===== -->
+  <div class="screen" id="scrTasks">
+    <div id="taskContent"></div>
+  </div>
+
+  <!-- ===== 表单屏 ===== -->
+  <div class="screen" id="scrForm">
+    <div style="background:#fff; border-radius:14px; padding:18px;">
+      <div class="f-row">
+        <label>任务名称（1~20 字）</label>
+        <input id="fName" maxlength="25" placeholder="例如：复习高数第 3 章">
+        <div class="f-err" id="fNameErr">请输入任务名称</div>
+      </div>
+      <div class="f-row">
+        <label>任务类型</label>
+        <div class="seg" id="fType">
+          <button class="on" data-v="study">📘 学习</button>
+          <button data-v="work">💼 工作</button>
+        </div>
+      </div>
+      <div class="f-row">
+        <label>预计节数（每节 45 分钟，单任务最多 4 节）</label>
+        <div class="seg" id="fLen">
+          <button class="on" data-v="1">1 节</button>
+          <button data-v="2">2 节</button>
+          <button data-v="3">3 节</button>
+          <button data-v="4">4 节</button>
+        </div>
+      </div>
+      <div class="f-row">
+        <label>优先级</label>
+        <div class="seg" id="fPri">
+          <button class="on" data-v="0">普通</button>
+          <button data-v="1">⭐ 高</button>
+        </div>
+      </div>
+      <button class="btn primary" id="fSubmit"></button>
+      <button class="btn ghost" id="fCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- ===== Tab ===== -->
+  <div class="tabbar">
+    <button class="on" data-tab="scrSched"><span class="ic">📅</span>课表</button>
+    <button data-tab="scrTasks"><span class="ic">📝</span>任务 <span id="tabBadge"></span></button>
+  </div>
+
+  <!-- ===== 弹层 ===== -->
+  <div class="mask" id="mask"><div id="maskInner"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= 数据模型（PRD 5.1 状态机） ================= */
+// Task: {id,name,type,len,pri,status: pending|scheduled|closed, placed:已落位节数}
+// Block: grid[i] = {taskId,name,type,idx,total,done,moved}
+const PERIODS=[
+  {label:'第1节',time:'08:00-08:45',brk:false},{label:'第2节',time:'08:55-09:40',brk:false},
+  {label:'第3节',time:'10:05-10:50',brk:false},{label:'第4节',time:'11:00-11:45',brk:false},
+  {label:'午休',time:'12:00-14:00',brk:true},
+  {label:'第5节',time:'14:00-14:45',brk:false},{label:'第6节',time:'14:55-15:40',brk:false},
+  {label:'第7节',time:'16:05-16:50',brk:false},{label:'第8节',time:'17:00-17:45',brk:false},
+  {label:'晚餐',time:'18:00-19:00',brk:true},
+  {label:'第9节',time:'19:00-19:45',brk:false},{label:'第10节',time:'19:55-20:40',brk:false},
+];
+let seq=0;
+let tasks=[
+  {id:++seq,name:'复习高数第3章',type:'study',len:2,pri:1,status:'pending',placed:0},
+  {id:++seq,name:'写项目周报',type:'work',len:2,pri:1,status:'pending',placed:0},
+  {id:++seq,name:'背英语单词',type:'study',len:1,pri:0,status:'pending',placed:0},
+  {id:++seq,name:'回复客户邮件',type:'work',len:1,pri:0,status:'pending',placed:0},
+];
+let grid=new Array(12).fill(null);
+let hasSchedule=false, manualTouched=false;
+let moveFrom=null, pendingSlot=null; // 空格快捷添加的目标节次
+let editingWrap=false;
+
+/* ================= 工具 ================= */
+const $=id=>document.getElementById(id);
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2000);}
+function segVal(id){return document.querySelector('#'+id+' .on').dataset.v;}
+document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{
+  if(e.target.tagName!=='BUTTON')return;
+  s.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+  e.target.classList.add('on');
+  if(s.id==='fType') e.target.classList.add(e.target.dataset.v==='work'?'g':'x'), e.target.classList.remove('x');
+}));
+function showMask(html){$('maskInner').innerHTML=html;$('mask').classList.add('show');}
+function hideMask(){$('mask').classList.remove('show');$('maskInner').innerHTML='';}
+$('mask').addEventListener('click',e=>{if(e.target.id==='mask')hideMask();});
+function todayStr(){return new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});}
+
+/* ================= 导航 ================= */
+document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  showScreen(b.dataset.tab);
+});
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  $(id).classList.add('on');
+  const btn=$('navBtn');
+  if(id==='scrSched'){
+    $('navTitle').textContent='今日课表';
+    $('navSub').textContent=todayStr();
+    btn.style.display='block'; btn.textContent='🌙 跨天演示';
+    btn.onclick=openWrapUp;
+    renderSched();
+  }else if(id==='scrTasks'){
+    $('navTitle').textContent='待排清单';
+    $('navSub').textContent='输入任务，一键生成今日课表';
+    btn.style.display='block'; btn.textContent='＋ 添加';
+    btn.onclick=()=>openForm(null);
+    renderTasks();
+  }else{ btn.style.display='none'; }
+}
+
+/* ================= FR-01 任务录入 ================= */
+function openForm(slot){
+  pendingSlot=slot;
+  showScreen('scrForm');
+  $('navTitle').textContent=slot!==null?`添加到第${slotToPeriodNo(slot)}节`:'添加任务';
+  $('navSub').textContent=slot!==null?'提交后第 1 节直接落入该格':'任务将进入待排清单';
+  $('fSubmit').textContent=slot!==null?'添加并落入该节':'加入待排清单';
+  $('fName').value=''; $('fName').classList.remove('err'); $('fNameErr').style.display='none';
+}
+function slotToPeriodNo(i){let n=0;for(let k=0;k<=i;k++)if(!PERIODS[k].brk)n++;return n;}
+$('fCancel').onclick=()=>showScreen(pendingSlot!==null?'scrSched':'scrTasks');
+$('fSubmit').onclick=()=>{
+  const name=$('fName').value.trim();
+  if(!name){$('fName').classList.add('err');$('fNameErr').style.display='block';return;}
+  const t={id:++seq,name:name.slice(0,20),type:segVal('fType'),len:+segVal('fLen'),pri:+segVal('fPri'),status:'pending',placed:0};
+  if(pendingSlot!==null){
+    // FR-04 空节次添加：第 1 节直接落入此格
+    grid[pendingSlot]={taskId:t.id,name:t.name,type:t.type,idx:1,total:t.len,done:false};
+    t.placed=1; t.status=t.len>1?'pending':'scheduled';
+    hasSchedule=true; manualTouched=true;
+    toast(t.len>1?`已落位第1节，剩余${t.len-1}节在清单中`:'已落入该节');
+    showScreen('scrSched');
+  }else{
+    tasks.push(t); toast('已加入待排清单'); showScreen('scrTasks');
+  }
+};
+
+/* ================= 任务清单渲染 ================= */
+function renderTasks(){
+  const pend=tasks.filter(t=>t.status==='pending');
+  $('tabBadge').textContent=pend.length?`(${pend.length})`:'';
+  const totalLen=pend.reduce((s,t)=>s+(t.len-t.placed),0);
+  let html='';
+  if(pend.length===0){
+    html+=`<div class="empty-cta"><div class="big">📝</div><p>清单为空<br>添加学习/工作任务，一键生成课程表式日程</p>
+      <button class="btn primary small" onclick="openForm(null)">＋ 添加任务</button></div>`;
+  }else{
+    html+=`<div class="sec-title">待排任务 · 共 ${pend.length} 项 / ${totalLen} 节（当日可用 10 节）</div>`;
+    html+=pend.map(t=>`<div class="task-card">
+      <div class="badge ${t.type}"></div>
+      <div class="info"><div class="t-name">${t.pri?'⭐ ':''}${t.name}</div>
+      <div class="t-meta">${t.type==='study'?'学习':'工作'} · 待排 ${t.len-t.placed} 节 · ${t.pri?'高优先级':'普通'}</div></div>
+      <button class="t-del" onclick="delTask(${t.id})" title="删除">✕</button></div>`).join('');
+    const over=totalLen>10;
+    html+=`<button class="btn primary" id="genBtn" style="margin-top:6px">${hasSchedule?'重新生成今日课表':'生成今日课表'}</button>`;
+    if(over) html+=`<p style="font-size:12px;color:var(--amber);margin-top:8px;text-align:center;">⚠ 总节数超过当日 10 节，部分任务将无法排入</p>`;
+  }
+  $('taskContent').innerHTML=html;
+  const g=$('genBtn'); if(g) g.onclick=()=>requestGenerate();
+}
+function delTask(id){ // FR-01：删除仅移除任务，不影响已落位时间块
+  tasks=tasks.filter(t=>t.id!==id); renderTasks(); toast('已删除');
+}
+
+/* ================= FR-02 自动生成（R1-R5） ================= */
+function requestGenerate(){
+  if(manualTouched&&hasSchedule){
+    showMask(`<div class="dialog"><h3>重新生成课表？</h3>
+      <p>重排将清除你的<b>手动调整</b>与<b>完成记录</b>，按当前待排清单整体替换今日课表。</p>
+      <div class="row"><button class="btn ghost" style="margin-top:0" onclick="hideMask()">取消</button>
+      <button class="btn primary" onclick="hideMask();generate()">确认重排</button></div></div>`);
+  }else generate();
+}
+function generate(){
+  grid=new Array(12).fill(null); manualTouched=false; hasSchedule=true;
+  tasks.forEach(t=>{if(t.status!=='closed'){t.placed=0;t.status='pending';}});
+  const sorted=tasks.filter(t=>t.status==='pending').sort((a,b)=>b.pri-a.pri||a.id-b.id); // R2
+  const avail=PERIODS.map((p,i)=>p.brk?-1:i).filter(i=>i>=0);
+  let cursor=0,lastType=null,streak=0; const unplaced=[];
+  sorted.forEach(t=>{
+    let need=t.len,placed=false;
+    const tryPlace=(relaxR4)=>{
+      for(let s=cursor;s+need<=avail.length;s++){
+        const run=avail.slice(s,s+need);
+        if(run[need-1]-run[0]!==need-1)continue; // R3：连续且不可跨午休/晚餐
+        if(!relaxR4&&lastType===t.type&&streak+need>3){cursor=Math.max(cursor,s);return false;} // R4
+        run.forEach((cell,k)=>grid[cell]={taskId:t.id,name:t.name,type:t.type,idx:k+1,total:t.len,done:false});
+        cursor=s+need;
+        if(lastType===t.type)streak+=need;else{lastType=t.type;streak=need;}
+        return true;
+      }
+      return false;
+    };
+    placed=tryPlace(false)||tryPlace(true); // 先严格 R4，放不下则放宽
+    if(placed){t.placed=t.len;t.status='scheduled';}
+    else unplaced.push(t);
+  });
+  if(unplaced.length){ // 容量不足：明确告知，不静默丢弃
+    showMask(`<div class="dialog"><h3>部分任务未能安排</h3>
+      <p>当日可用节次有限，以下任务保留在待排清单：</p>
+      <div class="unplaced">${unplaced.map(t=>`「${t.name}」${t.len}节`).join('、')}</div>
+      <div class="row"><button class="btn ghost" style="margin-top:0" onclick="hideMask();showScreen('scrTasks')">去减少任务</button>
+      <button class="btn primary" onclick="hideMask();showScreen('scrSched')">知道了</button></div></div>`);
+  }
+  renderTasks(); renderSched();
+  if(!unplaced.length){showScreen('scrSched');toast('课表已生成');}
+}
+
+/* ================= FR-03 课表视图 ================= */
+function renderSched(){
+  const box=$('schedContent');
+  $('moveBanner').className='move-banner'+(moveFrom!==null?' show':'');
+  if(!hasSchedule){
+    box.innerHTML=`<div class="empty-cta" style="margin-top:40px;"><div class="big">📅</div>
+      <p>今天还没有课表<br>录入待办，自动生成课程表式日程</p>
+      <button class="btn primary small" onclick="showScreen('scrTasks')">去添加任务</button></div>`;
+    return;
+  }
+  const done=grid.filter(b=>b&&b.done).length, total=grid.filter(b=>b).length;
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <span class="progress-chip">今日完成 ${done}/${total} 节</span>
+    <button class="btn ghost small" style="margin:0" onclick="requestGenerate()">↻ 重新生成</button></div>`;
+  html+=`<table class="sched"><tr><th style="width:64px">节次</th><th>安排</th></tr>`;
+  PERIODS.forEach((p,i)=>{
+    html+=`<tr><td class="slot-label">${p.label}<br>${p.time}</td>`;
+    if(p.brk){html+=`<td class="cell break"></td>`;}
+    else{
+      const b=grid[i];
+      const mv=moveFrom!==null&&!b;
+      if(b){
+        html+=`<td class="cell" onclick="openBlock(${i})"><div class="blk ${b.type} ${b.done?'done':''}">
+          <span class="nm">${b.name}</span><span class="st">${b.done?'✓ 已完成 · ':''}第 ${b.idx}/${b.total} 节</span></div></td>`;
+      }else{
+        html+=`<td class="cell ${mv?'move-target':''}" onclick="clickEmpty(${i})">
+          <span style="color:#c3cad6;font-size:11px">${mv?'点此落位':'空 · 点我添加'}</span></td>`;
+      }
+    }
+    html+='</tr>';
+  });
+  html+=`</table><div class="legend">
+    <span><span class="dot" style="background:var(--brand)"></span>学习</span>
+    <span><span class="dot" style="background:var(--green)"></span>工作</span>
+    <span><span class="dot" style="background:repeating-linear-gradient(45deg,#fafbfc,#fafbfc 4px,#e9edf2 4px,#e9edf2 8px)"></span>休息时段</span></div>`;
+  box.innerHTML=html;
+}
+
+/* ================= FR-04 / FR-05 色块操作 ================= */
+function openBlock(i){
+  if(moveFrom!==null)return;
+  const b=grid[i];
+  showMask(`<div class="sheet">
+    <div class="ttl">${b.name} · 第 ${b.idx}/${b.total} 节 ${b.done?'（已完成）':''}</div>
+    <button onclick="toggleDone(${i})">${b.done?'↩ 取消完成':'✓ 标记完成'}</button>
+    <button onclick="startMove(${i})">⇄ 移到其他节次</button>
+    <button class="danger" onclick="removeBlock(${i})">移出课表（任务回到清单）</button>
+    <button class="cancel" onclick="hideMask()">取消</button></div>`);
+}
+function toggleDone(i){ // FR-05：完成标记双向切换
+  if(!grid[i])return;
+  grid[i].done=!grid[i].done; hideMask(); renderSched();
+  toast(grid[i].done?'已完成，加油！':'已取消完成');
+}
+function startMove(i){moveFrom=i;hideMask();renderSched();}
+function clickEmpty(i){
+  if(moveFrom!==null){ // FR-04 换格
+    if(grid[i]){toast('该节已有安排');return;}
+    const b=grid[moveFrom];grid[moveFrom]=null;grid[i]=b;b.moved=true;manualTouched=true;
+    moveFrom=null;renderSched();toast('已移动');return;
+  }
+  openForm(i); // FR-04 空节次快捷添加
+}
+function removeBlock(i){ // FR-04 移出：任务所有时间块移除，回到清单
+  const tid=grid[i].taskId, name=grid[i].name;
+  grid=grid.map(b=>b&&b.taskId===tid?null:b);
+  const t=tasks.find(t=>t.id===tid);
+  if(t){t.placed=0;t.status='pending';}
+  manualTouched=true; hideMask(); renderSched(); renderTasks();
+  toast(`「${name}」已移回待排清单`);
+}
+
+/* ================= FR-05 当日收尾（跨天演示） ================= */
+function openWrapUp(){
+  if(!hasSchedule){toast('请先生成课表');return;}
+  const undoneTaskIds=[...new Set(grid.filter(b=>b&&!b.done).map(b=>b.taskId))];
+  if(undoneTaskIds.length===0){
+    showMask(`<div class="dialog"><h3>🎉 今日全部完成</h3><p>所有时间块均已标记完成，无待顺延任务。</p>
+      <div class="row"><button class="btn primary" onclick="hideMask()">好的</button></div></div>`);
+    return;
+  }
+  editingWrap=true;
+  const items=undoneTaskIds.map(tid=>{
+    const t=tasks.find(t=>t.id===tid);
+    const left=grid.filter(b=>b&&b.taskId===tid&&!b.done).length;
+    return `<div class="wrap-item" id="wi${tid}">
+      <div class="wn">${t.name}<small>剩余 ${left} 节未完成</small></div>
+      <div class="row">
+        <button class="primary" onclick="wrapResolve(${tid},true)">顺延到明日清单</button>
+        <button onclick="wrapResolve(${tid},false)">不再安排</button>
+      </div></div>`;
+  }).join('');
+  showMask(`<div class="dialog" style="max-height:70%;overflow-y:auto;"><h3>🌙 当日收尾</h3>
+    <p>新的一天开始了。昨天还有 ${undoneTaskIds.length} 个任务未完成，请逐一处理（直接关闭则默认顺延）：</p>
+    ${items}
+    <div class="row"><button class="btn ghost" style="margin-top:0" onclick="wrapClose()">完成收尾</button></div></div>`);
+}
+function wrapResolve(tid,toTomorrow){
+  const t=tasks.find(t=>t.id===tid);
+  const left=grid.filter(b=>b&&b.taskId===tid&&!b.done).length;
+  grid=grid.map(b=>b&&b.taskId===tid&&!b.done?null:b); // 移除未完成块
+  if(toTomorrow){t.len=left;t.placed=0;t.status='pending';}
+  else{t.status='closed';}
+  $('wi'+tid).innerHTML=`<div class="resolved">${toTomorrow?'✓ 已顺延到明日待排清单':'✓ 已关闭'}</div>`;
+}
+function wrapClose(){
+  hideMask();
+  grid=new Array(12).fill(null); hasSchedule=false; manualTouched=false; // 昨日归档，今日为空
+  tasks=tasks.filter(t=>t.status!=='closed');
+  renderTasks(); showScreen('scrSched'); toast('昨日课表已归档（只读），今天重新开始');
+}
+
+/* ================= 初始化 ================= */
+renderSched(); renderTasks();
+</script>
+</body>
+</html>
