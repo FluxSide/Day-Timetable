@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>「一日课表」可点击原型 v1.0</title>
+<title>「一日课表」可点击原型 v1.3</title>
 <style>
   :root{
     --ink:#1a2233; --sub:#6b7280; --line:#e4e7ec; --bg:#e9edf3;
@@ -29,24 +29,26 @@
   .tabbar button .ic{display:block; font-size:18px; margin-bottom:2px;}
   .tabbar button.on{color:var(--brand); font-weight:700;}
   /* ===== 课表网格 ===== */
-  table.sched{width:100%; border-collapse:collapse; font-size:11.5px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.05);}
+  table.sched{width:100%; border-collapse:collapse; font-size:13px; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(15,23,42,.05);}
   table.sched th, table.sched td{border:1px solid #eef0f4; padding:0; text-align:center;}
-  table.sched th{background:#f0f3f8; font-size:11px; padding:6px 2px; font-weight:600;}
-  td.slot-label{background:#f8fafc; font-size:10.5px; color:var(--sub); padding:6px 3px; width:64px; line-height:1.5;}
-  td.cell{height:52px; cursor:pointer; position:relative; transition:background .15s;}
+  table.sched th{background:#f0f3f8; font-size:12.5px; padding:6px 2px; font-weight:600;}
+  td.slot-label{background:#f8fafc; font-size:12px; color:var(--sub); padding:6px 4px; width:76px; line-height:1.5;}
+  td.slot-label.now{background:#fff7e8; color:var(--amber); font-weight:700;} /* 当前时间落在该节次时段内 */
+  td.cell{height:56px; cursor:pointer; position:relative; transition:background .15s;}
   td.cell:active{background:#eef3ff;}
   td.cell.break{background:repeating-linear-gradient(45deg,#fafbfc,#fafbfc 5px,#f1f3f6 5px,#f1f3f6 10px); cursor:default;}
   td.cell.move-target{background:#fff7e8; animation:pulse 1s infinite;}
   @keyframes pulse{50%{background:#ffefc4;}}
-  .blk{position:absolute; inset:3px; border-radius:8px; font-size:11px; padding:5px 6px; text-align:left; overflow:hidden; line-height:1.4;}
+  .blk{position:absolute; inset:3px; border-radius:8px; font-size:12.5px; padding:5px 7px; text-align:left; overflow:hidden; line-height:1.45;}
   .blk.study{background:var(--brand-soft); border-left:3px solid var(--brand); color:#1e3a8a;}
   .blk.work{background:var(--green-soft); border-left:3px solid var(--green); color:#14532d;}
   .blk.done{opacity:.5;}
+  .cell.swap-hint .blk{outline:2px dashed var(--amber); outline-offset:-3px;}
   .blk.done .nm{text-decoration:line-through;}
   .blk .nm{font-weight:700; display:block; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;}
-  .blk .st{font-size:9.5px; opacity:.75;}
-  .blk .now{position:absolute; top:3px; right:4px; background:var(--amber); color:#fff; font-size:9px; border-radius:4px; padding:0 4px;}
-  .legend{display:flex; gap:14px; font-size:11px; color:var(--sub); margin:10px 2px; flex-wrap:wrap;}
+  .blk .st{font-size:10.5px; opacity:.75;}
+  .blk .now{position:absolute; top:3px; right:4px; background:var(--amber); color:#fff; font-size:10px; border-radius:4px; padding:0 5px;}
+  .legend{display:flex; gap:14px; font-size:12px; color:var(--sub); margin:10px 2px; flex-wrap:wrap;}
   .dot{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:4px; vertical-align:-1px;}
   .empty-cta{text-align:center; padding:34px 20px; background:#fff; border-radius:12px; margin-bottom:12px; box-shadow:0 2px 8px rgba(15,23,42,.05);}
   .empty-cta .big{font-size:40px; margin-bottom:8px;}
@@ -80,7 +82,12 @@
   /* ===== 弹层 ===== */
   .mask{position:absolute; inset:0; background:rgba(15,23,42,.45); display:none; align-items:flex-end; z-index:50;}
   .mask.show{display:flex;}
-  .sheet{background:#fff; width:100%; border-radius:18px 18px 0 0; padding:8px 0 20px; animation:up .22s ease;}
+  .mask #maskInner{width:100%;} /* flex 子项默认按内容收缩，需撑满手机宽度，否则弹层只有半屏宽 */
+  /* 居中模式：色块操作菜单在屏幕正中，四边留 24px 间隙 */
+  .mask.center{align-items:center;}
+  .mask.center #maskInner{height:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box;}
+  .sheet{background:#fff; width:100%; border-radius:16px; padding:8px 0 12px; overflow:hidden; animation:pop .18s ease;}
+  @keyframes pop{from{transform:scale(.94); opacity:.5;}}
   @keyframes up{from{transform:translateY(40px); opacity:.4;}}
   .sheet .ttl{text-align:center; font-size:13px; color:var(--sub); padding:12px; border-bottom:1px solid var(--line); font-weight:600;}
   .sheet>button{display:block; width:100%; border:none; background:#fff; padding:14px 0; font-size:15.5px; cursor:pointer; font-family:inherit;}
@@ -106,7 +113,7 @@
   .move-banner{display:none; background:var(--amber-soft); color:var(--amber); font-size:12.5px; font-weight:700; text-align:center;
                padding:8px; border-radius:10px; margin-bottom:10px;}
   .move-banner.show{display:block;}
-  .progress-chip{font-size:11px; background:var(--brand-soft); color:var(--brand); border-radius:99px; padding:2px 10px; font-weight:700;}
+  .progress-chip{font-size:12px; background:var(--brand-soft); color:var(--brand); border-radius:99px; padding:2px 10px; font-weight:700;}
 </style>
 </head>
 <body>
@@ -121,7 +128,7 @@
 
   <!-- ===== 课表屏 ===== -->
   <div class="screen on" id="scrSched">
-    <div class="move-banner" id="moveBanner">换格模式：请点选一个空节次落位</div>
+    <div class="move-banner" id="moveBanner">换格模式：点空节次落位，点已安排节次则与之互换</div>
     <div id="schedContent"></div>
   </div>
 
@@ -212,10 +219,15 @@ document.querySelectorAll('.seg').forEach(s=>s.addEventListener('click',e=>{
   e.target.classList.add('on');
   if(s.id==='fType') e.target.classList.add(e.target.dataset.v==='work'?'g':'x'), e.target.classList.remove('x');
 }));
-function showMask(html){$('maskInner').innerHTML=html;$('mask').classList.add('show');}
-function hideMask(){$('mask').classList.remove('show');$('maskInner').innerHTML='';}
+function showMask(html,center){$('maskInner').innerHTML=html;$('mask').classList.toggle('center',!!center);$('mask').classList.add('show');}
+function hideMask(){$('mask').classList.remove('show');$('mask').classList.remove('center');$('maskInner').innerHTML='';}
 $('mask').addEventListener('click',e=>{if(e.target.id==='mask')hideMask();});
 function todayStr(){return new Date().toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});}
+function nowInPeriod(p){ // 当前时间是否落在该节次时段内
+  const [s,e]=p.time.split('-').map(t=>{const[a,b]=t.split(':').map(Number);return a*60+b;});
+  const d=new Date(), cur=d.getHours()*60+d.getMinutes();
+  return cur>=s&&cur<e;
+}
 
 /* ================= 导航 ================= */
 document.querySelectorAll('.tabbar button').forEach(b=>b.onclick=()=>{
@@ -354,19 +366,21 @@ function renderSched(){
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
     <span class="progress-chip">今日完成 ${done}/${total} 节</span>
     <button class="btn ghost small" style="margin:0" onclick="requestGenerate()">↻ 重新生成</button></div>`;
-  html+=`<table class="sched"><tr><th style="width:64px">节次</th><th>安排</th></tr>`;
+  html+=`<table class="sched"><tr><th style="width:76px">节次</th><th>安排</th></tr>`;
   PERIODS.forEach((p,i)=>{
-    html+=`<tr><td class="slot-label">${p.label}<br>${p.time}</td>`;
+    const isNow=nowInPeriod(p);
+    html+=`<tr><td class="slot-label${isNow?' now':''}">${p.label}<br>${p.time}</td>`;
     if(p.brk){html+=`<td class="cell break"></td>`;}
     else{
       const b=grid[i];
       const mv=moveFrom!==null&&!b;
+      const swap=moveFrom!==null&&b&&i!==moveFrom;
       if(b){
-        html+=`<td class="cell" onclick="openBlock(${i})"><div class="blk ${b.type} ${b.done?'done':''}">
-          <span class="nm">${b.name}</span><span class="st">${b.done?'✓ 已完成 · ':''}第 ${b.idx}/${b.total} 节</span></div></td>`;
+        html+=`<td class="cell ${swap?'swap-hint':''}" onclick="openBlock(${i})"><div class="blk ${b.type} ${b.done?'done':''}">
+          ${isNow?'<span class="now">现在</span>':''}<span class="nm">${b.name}</span><span class="st">${b.done?'✓ 已完成 · ':''}第 ${b.idx}/${b.total} 节</span></div></td>`;
       }else{
         html+=`<td class="cell ${mv?'move-target':''}" onclick="clickEmpty(${i})">
-          <span style="color:#c3cad6;font-size:11px">${mv?'点此落位':'空 · 点我添加'}</span></td>`;
+          <span style="color:#c3cad6;font-size:12px">${mv?'点此落位':'空 · 点我添加'}</span></td>`;
       }
     }
     html+='</tr>';
@@ -380,14 +394,14 @@ function renderSched(){
 
 /* ================= FR-04 / FR-05 色块操作 ================= */
 function openBlock(i){
-  if(moveFrom!==null)return;
+  if(moveFrom!==null){swapBlock(moveFrom,i);return;} // 换格模式：与非空节次互换
   const b=grid[i];
   showMask(`<div class="sheet">
     <div class="ttl">${b.name} · 第 ${b.idx}/${b.total} 节 ${b.done?'（已完成）':''}</div>
     <button onclick="toggleDone(${i})">${b.done?'↩ 取消完成':'✓ 标记完成'}</button>
     <button onclick="startMove(${i})">⇄ 移到其他节次</button>
     <button class="danger" onclick="removeBlock(${i})">移出课表（任务回到清单）</button>
-    <button class="cancel" onclick="hideMask()">取消</button></div>`);
+    <button class="cancel" onclick="hideMask()">取消</button></div>`, true);
 }
 function toggleDone(i){ // FR-05：完成标记双向切换
   if(!grid[i])return;
@@ -402,6 +416,14 @@ function clickEmpty(i){
     moveFrom=null;renderSched();toast('已移动');return;
   }
   openForm(i); // FR-04 空节次快捷添加
+}
+function swapBlock(from,to){ // FR-04 换格：与已安排节次交换位置
+  const a=grid[from], b=grid[to];
+  if(!a||!b)return;
+  if(a.taskId===b.taskId){toast('同一任务的两个节次，无需互换');return;}
+  grid[from]=b; grid[to]=a;
+  moveFrom=null; manualTouched=true; renderSched();
+  toast(`「${a.name}」与「${b.name}」已互换`);
 }
 function removeBlock(i){ // FR-04 移出：任务所有时间块移除，回到清单
   const tid=grid[i].taskId, name=grid[i].name;
